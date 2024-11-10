@@ -1,0 +1,2 @@
+# Raw Content types
+Ressources/* filter=lfs diff=lfs merge=lfs -text

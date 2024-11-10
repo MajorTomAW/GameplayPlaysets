@@ -1,0 +1,4 @@
+# Ignore any binary files
+
+Binaries/*
+Intermediate/*

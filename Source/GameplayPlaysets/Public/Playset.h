@@ -34,6 +34,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Playset")
 	virtual UTexture2D* GetIcon(const bool bUseLargeIfNotFound = true) const;
 
+
+	/** Updates the extent of this playset using the specified bounds. */
+	virtual void UpdateExtent(const FBoxSphereBounds& Extent);
+
+	/** Updates the extent of this playset using the specified extent. */
+	virtual void UpdateExtent(float X, float Y, float Z);
+
+	/** Updates the extent of this playset using the specified extent. */
+	virtual void UpdateExtent(const FBox& Extent);
+
 public:
 	/** The display/friendly name of this playset that will be facing the player. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Display", AssetRegistrySearchable, meta = (DisplayName = "Display Name"))
@@ -102,7 +112,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Placement")
 	TSet<TSoftObjectPtr<UPlayset>> AssociatedPlaysets;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Placement")
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Placement")
 	TArray<FPlaysetActorData> ActorData;
 
 public:

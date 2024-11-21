@@ -4,11 +4,14 @@
 #include "PlaysetThumbnailRenderer.h"
 //#include "Application/PlaysetEditorApp.h"
 #include "ContentBrowserModule.h"
+#include "EngineUtils.h"
 #include "IContentBrowserSingleton.h"
+#include "PlaysetRootActor.h"
 #include "Selection.h"
 #include "Application/PlaysetEditorApp.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Data/PlaysetDisplayItem_Icon.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "Interfaces/IMainFrameModule.h"
 #include "Slate/PlaysetDataListCommands.h"
 #include "Slate/SPlaysetConverterOptions.h"
@@ -17,6 +20,7 @@
 #include "Styling/SlateIconFinder.h"
 #include "Subsystems/EditorAssetSubsystem.h"
 #include "ThumbnailRendering/ThumbnailManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "FPlaysetsEditorModule"
 
@@ -90,6 +94,8 @@ void UE::Playset::Editor::InitializePlayset(UPlayset* Playset, const FPlaysetIni
 	{
 		InitializePlaysetActiveAssets(Playset, Args);
 	}
+
+	Playset->MarkPackageDirty();
 }
 
 void UE::Playset::Editor::InitializePlaysetActiveAssets(UPlayset* Playset, const FPlaysetInitArgs& Args)
@@ -97,16 +103,101 @@ void UE::Playset::Editor::InitializePlaysetActiveAssets(UPlayset* Playset, const
 	check(Playset);
 
 	// Initialize all selected actors
-	TArray<AActor> SelectedActors;
+	TArray<AActor*> SelectedActors;
 	for (const FAssetData& Asset : Args.GetSelectedActors())
 	{
 		if (AActor* Actor = Cast<AActor>(Asset.GetAsset()))
 		{
-			SelectedActors.Add(*Actor);
+			SelectedActors.Add(Actor);
 		}
 	}
 
-	
+	// Spawn the root actor
+	UWorld* World = GEditor->GetEditorWorldContext().World();
+	FActorSpawnParameters SpawnParams;
+	{
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		SpawnParams.bNoFail = true;
+	}
+	APlaysetRootActor* RootActor = World->SpawnActor<APlaysetRootActor>(APlaysetRootActor::StaticClass(), FTransform::Identity, SpawnParams);
+	check(RootActor);
+
+	AActor* FirstActor = SelectedActors[0];
+	if (!ensure(FirstActor))
+	{
+		return;
+	}
+
+	RootActor->SetActorLocation(FirstActor->GetActorLocation());
+	RootActor->SetActorRotation(FirstActor->GetActorRotation());
+
+	FBoxSphereBounds Bounds = CalculateActiveAssetBounds(RootActor, Args.GetSelectedActors());
+	DrawDebugBox(World, Bounds.Origin, Bounds.BoxExtent, FColor::Red, false, 5.f, 0, 1.f);
+
+
+	// Restore any locations
+	const FVector InitLocation = RootActor->GetActorLocation();
+	FVector NewLocation = Bounds.Origin;
+	NewLocation.Z -= Bounds.BoxExtent.Z;
+
+	RootActor->SetActorLocation(NewLocation);
+
+	for (AActor* Actor : SelectedActors)
+	{
+		if (Actor == nullptr)
+		{
+			continue;
+		}
+
+		Actor->SetActorLocation(
+			(Actor->GetActorLocation() +
+			(InitLocation - RootActor->GetActorLocation())));
+	}
+
+	// Save the data to the playset
+	SaveActorData(Playset, SelectedActors);
+	Playset->UpdateExtent(Bounds);
+
+	// Change selection to the root actor
+	GEditor->SelectNone(true, true);
+	GEditor->SelectActor(RootActor, true, true);
+}
+
+void UE::Playset::Editor::SaveActorData(UPlayset* Playset, const TArray<AActor*>& SelectedActors)
+{
+	for (AActor* Actor : SelectedActors)
+	{
+		const UClass* Class = Actor->GetClass();
+		int32& Count = Playset->ActorClassCount.FindOrAdd(Class);
+		Count++;
+
+		FPlaysetActorData& NewData = Playset->ActorData.AddDefaulted_GetRef();
+		NewData.ActorClass = Class;
+		NewData.InfluenceDistance = Actor->GetSimpleCollisionRadius();
+		NewData.RelativeTransform = Actor->GetActorTransform();
+	}
+}
+
+FBoxSphereBounds UE::Playset::Editor::CalculateActiveAssetBounds(AActor* Origin, const TArray<FAssetData>& SelectedActors)
+{
+	FBoxSphereBounds SharedBounds;
+	SharedBounds.Origin = Origin->GetActorLocation();
+
+	for (const FAssetData& Asset : SelectedActors)
+	{
+		AActor* Actor = Cast<AActor>(Asset.GetAsset());
+		if (!ensure(Actor))
+		{
+			continue;
+		}
+
+		Actor->GetRootComponent()->Mobility = EComponentMobility::Type::Movable;
+		Actor->AttachToActor(Origin, FAttachmentTransformRules::KeepWorldTransform);
+
+		SharedBounds = SharedBounds + Actor->GetStreamingBounds();
+	}
+
+	return SharedBounds;
 }
 
 namespace LevelEditorExtension_Playset
@@ -189,8 +280,51 @@ namespace LevelEditorExtension_Playset
 	{
 		return true;
 	}
+
+	void Execute_CleanUpPlaysetRoots()
+	{
+		UWorld* World = GEditor->GetEditorWorldContext().World();
+		if (!World)
+		{
+			return;
+		}
+
+		const FScopedTransaction Transaction(LOCTEXT("CleanUpPlaysetRoots", "Clean Up Playset Roots"));
+		World->Modify();
+
+		int32 NumRemoved = 0;
+
+		// Remove any PlaysetRoot actors that are no longer needed
+		for (TActorIterator<APlaysetRootActor> It(World); It; ++It)
+		{
+			AActor* Actor = *It;
+			
+			TArray<AActor*> Children;
+			Actor->GetAttachedActors(Children);
+			
+			if (Children.Num() > 0)
+			{
+				continue;
+			}
+
+			// Remove the actor
+			Actor->Destroy();
+			NumRemoved++;
+		}
+
+		// Show a notification
+		const FText NotificationText = FText::Format(LOCTEXT("CleanUpPlaysetRootsNotificationText", "Cleaned up {0} PlaysetRoot actor(s)"), FText::AsNumber(NumRemoved));
+		FNotificationInfo Info(NotificationText);
+		Info.ExpireDuration = 3.f;
+		FSlateNotificationManager::Get().AddNotification(Info);
+	}
+
+	bool CanExecute_CleanUpPlaysetRoots()
+	{
+		return true;
+	}
 	
-	void AddLevelEditorExtension(FText LabelOverride, FText TooltipOverride)
+	void AddLevelEditorExtensions()
 	{
 		// Get the icon
 		const FSlateIcon AssetIcon = FSlateIconFinder::FindIconForClass(UPlayset::StaticClass());
@@ -204,16 +338,32 @@ namespace LevelEditorExtension_Playset
 		FToolMenuSection& Section = Menu->FindOrAddSection("PlaysetOptions", LOCTEXT("AssetOptionsHeading", "Playset Options"));
 		Section.InsertPosition.Position = EToolMenuInsertType::First;
 		Section.Label = LOCTEXT("AssetOptionsHeading", "Playset Options");
+
+		// Convert to Playset
 		Section.AddMenuEntry
 		(
 			"Playset_ConvertToPlayset",
-			LabelOverride,
-			TooltipOverride,
+			LOCTEXT("Playset_ConvertToPlayset", "Convert to Playset"),
+			LOCTEXT("Playset_ConvertToPlayset_Tooltip", "Convert the selected actor(s) to a Playset"),
 			AssetIcon,
 			FUIAction
 			(
 				FExecuteAction::CreateStatic(&Execute_ConvertToPlayset),
 				FCanExecuteAction::CreateStatic(&CanExecute_ConvertToPlayset)
+			)
+		);
+
+		// Clean up PlaysetRoots
+		Section.AddMenuEntry
+		(
+			"Playset_CleanUpPlaysetRoots",
+			LOCTEXT("Playset_CleanUpPlaysetRoots", "Clean Up Playset Roots"),
+			LOCTEXT("Playset_CleanUpPlaysetRoots_Tooltip", "Remove any PlaysetRoot actors that are no longer needed"),
+			FSlateIcon(FAppStyle::GetAppStyleSetName(), "GraphEditor.Clean"),
+			FUIAction
+			(
+				FExecuteAction::CreateStatic(&Execute_CleanUpPlaysetRoots),
+				FCanExecuteAction::CreateStatic(&CanExecute_CleanUpPlaysetRoots)
 			)
 		);
 	}
@@ -263,12 +413,7 @@ void FPlaysetsEditorModule::OnPostEngineInit()
 {
 	FPlaysetStyle::Get();
 	FPlaysetDataListCommands::Register();
-
-	LevelEditorExtension_Playset::AddLevelEditorExtension
-	(
-		LOCTEXT("LevelEditorExtension_Playset_Label", "Convert to Playset"),
-		LOCTEXT("LevelEditorExtension_Playset_Tooltip", "Convert the selected actor(s) to a Playset")
-	);
+	LevelEditorExtension_Playset::AddLevelEditorExtensions();
 
 	if (GIsEditor)
 	{

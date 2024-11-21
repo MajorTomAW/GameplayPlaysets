@@ -79,6 +79,27 @@ UTexture2D* UPlayset::GetIcon(const bool bUseLargeIfNotFound) const
 	return Icon;
 }
 
+void UPlayset::UpdateExtent(const FBoxSphereBounds& Extent)
+{
+	SizeX = Extent.BoxExtent.X;
+	SizeY = Extent.BoxExtent.Y;
+	SizeZ = Extent.BoxExtent.Z;
+}
+
+void UPlayset::UpdateExtent(const float X, const float Y, const float Z)
+{
+	SizeX = X;
+	SizeY = Y;
+	SizeZ = Z;
+}
+
+void UPlayset::UpdateExtent(const FBox& Extent)
+{
+	SizeX = Extent.GetSize().X;
+	SizeY = Extent.GetSize().Y;
+	SizeZ = Extent.GetSize().Z;
+}
+
 
 #if WITH_EDITOR
 void UPlayset::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)

@@ -23,7 +23,7 @@ enum class EPlaysetOffsetType : uint8
 };
 
 USTRUCT(BlueprintType)
-struct FPlaysetActorData
+struct GAMEPLAYPLAYSETS_API FPlaysetActorData
 {
 	GENERATED_BODY()
 

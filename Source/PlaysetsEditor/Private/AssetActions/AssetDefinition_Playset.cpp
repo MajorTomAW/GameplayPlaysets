@@ -60,19 +60,16 @@ UThumbnailInfo* UAssetDefinition_Playset::LoadThumbnailInfo(const FAssetData& In
 
 EAssetCommandResult UAssetDefinition_Playset::OpenAssets(const FAssetOpenArgs& OpenArgs) const
 {
-	const EToolkitMode::Type Mode = OpenArgs.GetToolkitMode();
+	const EToolkitMode::Type Mode = EToolkitMode::Standalone;
 	IPlaysetsEditorModule& PlaysetsEditorModule = IPlaysetsEditorModule::Get();
 
 	for (UPlayset* Playset : OpenArgs.LoadObjects<UPlayset>())
 	{
-		bool bFoundExistingToolkit = false;
-		//if (Playset-)
-
-		if (!bFoundExistingToolkit)
-		{
-			PlaysetsEditorModule.CreatePlaysetsEditor(Mode, OpenArgs.ToolkitHost, Playset);
-		}
+		UE_LOG(LogTemp, Warning, TEXT("Open Playset: %s"), *Playset->GetName());
+		PlaysetsEditorModule.CreatePlaysetsEditor(Mode, OpenArgs.ToolkitHost, Playset);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Finished opening Playsets"));
 
 	return EAssetCommandResult::Handled;
 }

@@ -17,6 +17,7 @@ class GAMEPLAYPLAYSETS_API UPlaysetDataItem : public UObject
 	GENERATED_UCLASS_BODY()
 
 public:
+	uint32 bIsSingleton : 1;
 
 protected:
 	/** The name of the data object. */

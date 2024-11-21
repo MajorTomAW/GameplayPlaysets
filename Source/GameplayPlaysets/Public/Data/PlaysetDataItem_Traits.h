@@ -8,7 +8,7 @@
 #include "PlaysetDataItem_Traits.generated.h"
 
 /**
- * Item date for adding tagged traits to the item.
+ * Item data for adding tagged traits to the item.
  */
 UCLASS(meta = (DisplayName = "Traits Item Data"))
 class UPlaysetDataItem_Traits : public UPlaysetDataItem

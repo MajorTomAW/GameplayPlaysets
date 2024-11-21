@@ -6,21 +6,20 @@ public class PlaysetsEditor : ModuleRules
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange(
-            new string[]
+        PublicDependencyModuleNames.AddRange(new string[]
             {
                 "Core",
+                "UnrealEd",
+                "GameplayPlaysets",
             }
         );
 
-        PrivateDependencyModuleNames.AddRange(
-            new string[]
+        PrivateDependencyModuleNames.AddRange(new string[]
             {
                 "CoreUObject",
                 "Engine",
                 "Slate",
                 "SlateCore",
-                "GameplayPlaysets",
                 "AssetDefinition",
                 "EditorStyle",
                 "Projects",
@@ -29,6 +28,9 @@ public class PlaysetsEditor : ModuleRules
                 "ToolWidgets",
                 "InputCore",
                 "StateTreeEditorModule",
+                "AdvancedPreviewScene",
+                "PropertyEditor",
+                "ToolMenus",
             }
         );
     }

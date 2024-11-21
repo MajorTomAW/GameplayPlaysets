@@ -7,6 +7,7 @@
 
 UPlaysetDataItem::UPlaysetDataItem(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bIsSingleton(true)
 {
 	DataObjectName = GetClass()->GetName();
 }

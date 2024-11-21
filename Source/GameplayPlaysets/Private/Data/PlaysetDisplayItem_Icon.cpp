@@ -25,6 +25,13 @@ FString UPlaysetDisplayItem_Icon::GetDesc()
 	return Desc;
 }
 
+void UPlaysetDisplayItem_Icon::SetIcon(const UTexture2D* InIcon)
+{
+	if (InIcon != nullptr)
+	{
+		Icon = InIcon;
+	}
+}
 
 
 UPlaysetDisplayItem_LargeIcon::UPlaysetDisplayItem_LargeIcon(const FObjectInitializer& ObjectInitializer)
@@ -47,4 +54,12 @@ FString UPlaysetDisplayItem_LargeIcon::GetDesc()
 	}
 	
 	return Desc;
+}
+
+void UPlaysetDisplayItem_LargeIcon::SetLargeIcon(const UTexture2D* InLargeIcon)
+{
+	if (InLargeIcon != nullptr)
+	{
+		LargeIcon = InLargeIcon;
+	}
 }

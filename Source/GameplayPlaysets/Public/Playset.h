@@ -47,19 +47,26 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Display", meta = (MultiLine = true, DisplayName = "Short Description"))
 	FText ItemShortDescription;
 
+
+
+
+
+
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Display", Instanced, meta = (ShowOnlyInnerProperties = true))
 	TSet<TObjectPtr<UPlaysetDataItem_Display>> DisplayListObjects;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Instanced, Category = "Playset", meta = (ShowOnlyInnerProperties = true))
-	TSet<UPlaysetDataItem*> DataListObjects;
+	/** List of data items that this playset has. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Instanced, Category = "Playset", meta = (ShowOnlyInnerProperties = true, DisallowedClasses = "/Script/GameplayPlaysets.PlaysetDateItem_Display"))
+	TSet<TObjectPtr<UPlaysetDataItem>> DataListObjects;
 
 	/** The URL to the documentation of this playset (optional). */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Playset", AdvancedDisplay, meta = (DisplayName = "Documentation URL"))
 	FString DocumentationURL;
 
 	/** The source actor blueprint that will be used to spawn the playset. If not set, the playset will be spawned as is. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Actor Data", AssetRegistrySearchable, meta = (MetaClass = "/Script/Engine.Actor", ShowTreeView = true))
-	FSoftClassPath SourceActorBlueprint;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Actor Data", AssetRegistrySearchable, meta = (ShowTreeView = true))
+	TSoftClassPtr<AActor> SourceActorBlueprint;
 
 	/** Tags that this playset has. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tags", meta = (DisplayName = "Tags"))
@@ -90,12 +97,15 @@ public:
 	FRotator DefaultRotation;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Placement")
-	TMap<FSoftClassPath, int32> ActorClassCount;
+	TMap<TSoftClassPtr<AActor>, int32> ActorClassCount;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Placement")
 	TSet<TSoftObjectPtr<UPlayset>> AssociatedPlaysets;
 
-protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Placement")
+	TArray<FPlaysetActorData> ActorData;
+
+public:
 #if WITH_EDITOR
 	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -104,6 +114,7 @@ protected:
 	//~ End UObject Interface
 #endif
 
+protected:
 	/** The primary asset type that will be used for this playset. */
 	UPROPERTY(AssetRegistrySearchable)
 	FName PrimaryAssetType = "Playset";

@@ -3,7 +3,7 @@
 
 #include "Modes/PlaysetEditorModes.h"
 
-#include "PlaysetsEditor.h"
+#include "PlaysetsEditorModule.h"
 #include "Application/PlaysetEditorApp.h"
 #include "Tabs/PlaysetEditorTabFactory.h"
 #include "Toolbar/PlaysetEditorToolbar.h"

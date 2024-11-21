@@ -4,7 +4,7 @@
 #include "PlaysetEditorApp.h"
 
 #include "Playset.h"
-#include "PlaysetsEditor.h"
+#include "PlaysetsEditorModule.h"
 #include "Details/PlaysetDetailCustomization.h"
 #include "Modes/PlaysetEditorModes.h"
 #include "Slate/SPlaysetDataList.h"
@@ -185,6 +185,8 @@ TSharedRef<SWidget> FPlaysetEditorApp::SpawnTab_Viewport()
 		[
 			Viewport.ToSharedRef()
 		];
+
+	Viewport->UpdateViewport(Playset);
 
 	// Viewport->OnAddedToTab(SpawnedWidget);
 

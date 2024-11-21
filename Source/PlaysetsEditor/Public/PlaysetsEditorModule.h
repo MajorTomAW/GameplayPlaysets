@@ -89,7 +89,7 @@ namespace UE::Playset::Editor
 	
 	void InitializePlayset(UPlayset* Playset, const FPlaysetInitArgs& Args);
 	void InitializePlaysetActiveAssets(UPlayset* Playset, const FPlaysetInitArgs& Args);
-	void SaveActorData(UPlayset* Playset, const TArray<AActor*>& SelectedActors);
+	void SaveActorData(UPlayset* Playset, AActor* Origin, const TArray<AActor*>& SelectedActors);
 
 	FBoxSphereBounds CalculateActiveAssetBounds(AActor* Origin, const TArray<FAssetData>& SelectedActors);
 }

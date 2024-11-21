@@ -4,7 +4,7 @@
 #include "Tabs/PlaysetEditorTabFactory.h"
 
 #include "NiagaraEditorStyle.h"
-#include "PlaysetsEditor.h"
+#include "PlaysetsEditorModule.h"
 #include "Application/PlaysetEditorApp.h"
 
 #define LOCTEXT_NAMESPACE "PlaysetEditorTabFactory"

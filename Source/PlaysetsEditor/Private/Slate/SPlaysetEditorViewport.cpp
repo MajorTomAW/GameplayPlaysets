@@ -5,7 +5,10 @@
 
 #include "AdvancedPreviewScene.h"
 #include "NiagaraEditorStyle.h"
+#include "Playset.h"
+#include "PlaysetRootActor.h"
 #include "SlateOptMacros.h"
+#include "Kismet/KismetMathLibrary.h"
 
 #define LOCTEXT_NAMESPACE "PlaysetEditorViewport"
 
@@ -15,8 +18,8 @@ FPlaysetEditorViewportClient::FPlaysetEditorViewportClient(FAdvancedPreviewScene
 	: FEditorViewportClient(nullptr, &InPreviewScene, InViewport)
 {
 	DrawHelper.bDrawGrid = true;
-	DrawHelper.GridColorAxis = FColor(180,80,80);
-	DrawHelper.GridColorMajor = FColor(72,72,72);
+	DrawHelper.GridColorAxis = FColor(80,80,80);
+	DrawHelper.GridColorMajor = FColor(22,22,22);
 	DrawHelper.GridColorMinor = FColor(64,64,64);
 	DrawHelper.PerspectiveGridSize = UE_BIG_NUMBER;
 
@@ -30,7 +33,8 @@ void SPlaysetEditorViewport::Construct(const FArguments& InArgs, TSharedPtr<FPla
 	AppPtr = InPlaysetApp;
 	
 	AdvancedPreviewScene = MakeShareable(new FAdvancedPreviewScene(FPreviewScene::ConstructionValues()));
-	AdvancedPreviewScene->SetFloorVisibility(false);
+	AdvancedPreviewScene->SetFloorVisibility(true);
+	AdvancedPreviewScene->SetFloorOffset(5.f);
 
 	const FRotator LightDir(-40.f, 128.f, 0.f);
 	AdvancedPreviewScene->SetLightDirection(LightDir);
@@ -42,16 +46,39 @@ void SPlaysetEditorViewport::Construct(const FArguments& InArgs, TSharedPtr<FPla
 
 SPlaysetEditorViewport::~SPlaysetEditorViewport()
 {
-	AdvancedPreviewScene.Reset();
+	if (PreviewComponent && AdvancedPreviewScene.IsValid())
+	{
+		AdvancedPreviewScene->RemoveComponent(PreviewComponent);
+		PreviewComponent->DestroyComponent();
+		PreviewComponent->MarkAsGarbage();
+		
+		AdvancedPreviewScene->GetScene()->OnWorldCleanup();
+		AdvancedPreviewScene.Reset();
+	}
+
+	if (SystemViewportClient.IsValid())
+	{
+		SystemViewportClient->Invalidate();
+		SystemViewportClient->Viewport = nullptr;
+	}
 }
 
 TSharedRef<FEditorViewportClient> SPlaysetEditorViewport::MakeEditorViewportClient()
 {
 	SystemViewportClient = MakeShareable(new FPlaysetEditorViewportClient(*AdvancedPreviewScene.Get(), SharedThis(this)));
 	{
-		SystemViewportClient->SetViewLocation(FVector::ZeroVector);
-		SystemViewportClient->SetViewRotation(FRotator::ZeroRotator);
-		SystemViewportClient->SetViewLocationForOrbiting(FVector::ZeroVector, 750.f);
+		const FVector ViewLocation = FVector(0.7f, 0.7f, 1.f);
+		constexpr float ViewDistance = 400.f;
+		
+		SystemViewportClient->SetViewLocation(ViewLocation * ViewDistance);
+
+		// Find look at origin
+		const FRotator ViewRotation = UKismetMathLibrary::FindLookAtRotation(ViewLocation, FVector::ZeroVector); 
+		SystemViewportClient->SetViewRotation(ViewRotation);
+		
+
+		SystemViewportClient->ToggleOrbitCamera(false);
+		
 		SystemViewportClient->bSetListenerPosition = false;
 		SystemViewportClient->SetRealtime(true);
 		SystemViewportClient->SetGameView(false);
@@ -76,7 +103,7 @@ void SPlaysetEditorViewport::PopulateViewportOverlays(TSharedRef<SOverlay> Overl
 	.HAlign(HAlign_Center)
 	[
 		SAssignNew(StatusText, STextBlock)
-		.Text_Raw(this, &SPlaysetEditorViewport::GetViewportStatusText)
+		.Text(this, &SPlaysetEditorViewport::GetViewportStatusText)
 		.TextStyle(FNiagaraEditorStyle::Get(), "NiagaraEditor.Viewport.CompileOverlay")
 		.ColorAndOpacity(FLinearColor::White)
 		.ShadowOffset(0.8f)
@@ -107,7 +134,86 @@ void SPlaysetEditorViewport::AddReferencedObjects(FReferenceCollector& Collector
 	{
 		Collector.AddReferencedObject(PreviewComponent);
 	}
+
+	Collector.AddReferencedObjects(AdditionalComponents);
 }
+
+void SPlaysetEditorViewport::CleanUpScene()
+{
+	if (!AdvancedPreviewScene.IsValid())
+	{
+		return;
+	}
+
+	AdvancedPreviewScene->RemoveComponent(PreviewComponent);
+	PreviewComponent->DestroyComponent();
+	PreviewComponent->MarkAsGarbage();
+	PreviewComponent = nullptr;
+
+	for (auto It = AdditionalComponents.CreateIterator(); It; ++It)
+	{
+		USceneComponent* Component = *It;
+		AdvancedPreviewScene->RemoveComponent(Component);
+		Component->DestroyComponent();
+		Component->MarkAsGarbage();
+	}
+
+	AdditionalComponents.Reset();
+}
+
+
+void SPlaysetEditorViewport::UpdateViewport(UPlayset* OwningPlayset)
+{
+	if (!AdvancedPreviewScene.IsValid())
+	{
+		return;
+	}
+	
+	if (PreviewComponent && OwningPlayset == nullptr)
+	{
+		CleanUpScene();
+
+		AdvancedPreviewScene->GetScene()->OnWorldCleanup();
+		SystemViewportClient->Invalidate();
+	}
+	else if (OwningPlayset == nullptr)
+	{
+		AdvancedPreviewScene->GetScene()->OnWorldCleanup();
+		SystemViewportClient->Invalidate();
+	}
+
+	if (OwningPlayset == nullptr)
+	{
+		return;
+	}
+
+	FActorSpawnParameters SpawnParams;
+	{
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		SpawnParams.ObjectFlags = RF_Transient | RF_Transactional;
+	}
+	APlaysetRootActor* RootActor = AdvancedPreviewScene->GetWorld()->SpawnActor<APlaysetRootActor>(APlaysetRootActor::StaticClass(), FTransform::Identity, SpawnParams);
+	check(RootActor);
+
+	PreviewComponent = RootActor->GetRootComponent();
+	AdvancedPreviewScene->AddComponent(PreviewComponent, FTransform::Identity);
+
+	for (const FPlaysetActorData& Data : OwningPlayset->ActorData)
+	{
+		UClass* Class = Data.ActorClass.LoadSynchronous();
+		if (Class == nullptr)
+		{
+			continue;
+		}
+
+		AActor* Actor = AdvancedPreviewScene->GetWorld()->SpawnActor<AActor>(Class, Data.RelativeTransform, SpawnParams);
+		check(Actor);
+
+		Actor->AttachToActor(RootActor, FAttachmentTransformRules::KeepRelativeTransform);
+		AdvancedPreviewScene->AddComponent(Actor->GetRootComponent(), FTransform::Identity);
+	}
+}
+
 
 FText SPlaysetEditorViewport::GetViewportStatusText() const
 {

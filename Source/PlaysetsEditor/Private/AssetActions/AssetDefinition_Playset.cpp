@@ -4,7 +4,7 @@
 #include "AssetDefinition_Playset.h"
 
 #include "Playset.h"
-#include "PlaysetsEditor.h"
+#include "PlaysetsEditorModule.h"
 #include "Style/PlaysetStyle.h"
 #include "ThumbnailRendering/SceneThumbnailInfo.h"
 
@@ -19,7 +19,15 @@ FText UAssetDefinition_Playset::GetAssetDescription(const FAssetData& AssetData)
 {
 	if (const UPlayset* Playset = Cast<UPlayset>(AssetData.GetAsset()))
 	{
-		return Playset->ItemDescription;
+		if (!Playset->ItemDescription.IsEmpty())
+		{
+			return Playset->ItemDescription;
+		}
+		
+		if (!Playset->ItemShortDescription.IsEmpty())
+		{
+			return Playset->ItemShortDescription;
+		}
 	}
 
 	return FText();

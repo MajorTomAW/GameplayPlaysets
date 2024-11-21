@@ -3,7 +3,7 @@
 
 #include "PlaysetEditorToolbar.h"
 
-#include "PlaysetsEditor.h"
+#include "PlaysetsEditorModule.h"
 #include "Application/PlaysetEditorApp.h"
 #include "WorkflowOrientedApp/SModeWidget.h"
 

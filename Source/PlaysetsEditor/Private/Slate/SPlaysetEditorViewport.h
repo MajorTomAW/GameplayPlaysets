@@ -6,6 +6,7 @@
 #include "SCommonEditorViewportToolbarBase.h"
 #include "SEditorViewport.h"
 
+class UPlayset;
 class FAdvancedPreviewScene;
 class FPlaysetEditorApp;
 
@@ -46,8 +47,15 @@ public:
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	virtual FString GetReferencerName() const override { return TEXT("SPlaysetEditorViewport"); }
 
+	void UpdateViewport(UPlayset* OwningPlayset);
+
+protected:
+	void CleanUpScene();
+
 protected:
 	TObjectPtr<USceneComponent> PreviewComponent;
+	TArray<TObjectPtr<USceneComponent>> AdditionalComponents;
+	
 	TWeakPtr<FPlaysetEditorApp> AppPtr;
 	TSharedPtr<FAdvancedPreviewScene> AdvancedPreviewScene;
 	TSharedPtr<class FEditorViewportClient> SystemViewportClient;

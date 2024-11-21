@@ -1,4 +1,4 @@
-﻿#include "PlaysetsEditor.h"
+﻿#include "PlaysetsEditorModule.h"
 
 #include "Playset.h"
 #include "PlaysetThumbnailRenderer.h"
@@ -6,6 +6,7 @@
 #include "ContentBrowserModule.h"
 #include "EngineUtils.h"
 #include "IContentBrowserSingleton.h"
+#include "PlaysetDeveloperSettings.h"
 #include "PlaysetRootActor.h"
 #include "Selection.h"
 #include "Application/PlaysetEditorApp.h"
@@ -155,7 +156,7 @@ void UE::Playset::Editor::InitializePlaysetActiveAssets(UPlayset* Playset, const
 	}
 
 	// Save the data to the playset
-	SaveActorData(Playset, SelectedActors);
+	SaveActorData(Playset, RootActor, SelectedActors);
 	Playset->UpdateExtent(Bounds);
 
 	// Change selection to the root actor
@@ -163,7 +164,7 @@ void UE::Playset::Editor::InitializePlaysetActiveAssets(UPlayset* Playset, const
 	GEditor->SelectActor(RootActor, true, true);
 }
 
-void UE::Playset::Editor::SaveActorData(UPlayset* Playset, const TArray<AActor*>& SelectedActors)
+void UE::Playset::Editor::SaveActorData(UPlayset* Playset, AActor* Origin, const TArray<AActor*>& SelectedActors)
 {
 	for (AActor* Actor : SelectedActors)
 	{
@@ -174,7 +175,15 @@ void UE::Playset::Editor::SaveActorData(UPlayset* Playset, const TArray<AActor*>
 		FPlaysetActorData& NewData = Playset->ActorData.AddDefaulted_GetRef();
 		NewData.ActorClass = Class;
 		NewData.InfluenceDistance = Actor->GetSimpleCollisionRadius();
-		NewData.RelativeTransform = Actor->GetActorTransform();
+
+		FTransform RelativeTransform;
+		{
+			RelativeTransform.SetLocation(Actor->GetActorLocation() - Origin->GetActorLocation());
+			RelativeTransform.SetRotation(Actor->GetActorRotation().Quaternion());
+			RelativeTransform.SetScale3D(Actor->GetActorScale3D());
+		}
+		
+		NewData.RelativeTransform = RelativeTransform;
 	}
 }
 
@@ -191,7 +200,7 @@ FBoxSphereBounds UE::Playset::Editor::CalculateActiveAssetBounds(AActor* Origin,
 			continue;
 		}
 
-		Actor->GetRootComponent()->Mobility = EComponentMobility::Type::Movable;
+		Actor->GetRootComponent()->SetMobility(EComponentMobility::Movable);
 		Actor->AttachToActor(Origin, FAttachmentTransformRules::KeepWorldTransform);
 
 		SharedBounds = SharedBounds + Actor->GetStreamingBounds();
@@ -235,7 +244,12 @@ namespace LevelEditorExtension_Playset
 
 		// Setup the options for the new playset
 		const FString PlaysetName = TEXT("PID_") + Options->GetNameString();
-		const FString PathName = FPaths::GetPath(AssetsToConvert.Top().GetPackage()->GetPathName());
+		FString PathName = FPaths::GetPath(AssetsToConvert.Top().GetPackage()->GetPathName());
+
+		if (const UPlaysetDeveloperSettings* Settings = UPlaysetDeveloperSettings::Get())
+		{
+			PathName = Settings->DefaultSaveDirectory.Path;
+		}
 
 		FSaveAssetDialogConfig SaveConfig;
 		{
@@ -370,6 +384,12 @@ namespace LevelEditorExtension_Playset
 }
 
 
+
+
+
+
+
+
 class FPlaysetsEditorModule final : public IPlaysetsEditorModule
 {
 public:
@@ -384,18 +404,21 @@ public:
 
 protected:
 	void OnPostEngineInit();
+	void OnEnginePreExit();
 };
 IMPLEMENT_MODULE(FPlaysetsEditorModule, PlaysetsEditor);
 
 void FPlaysetsEditorModule::StartupModule()
 {
 	FCoreDelegates::OnPostEngineInit.AddRaw(this, &ThisClass::OnPostEngineInit);
+	FCoreDelegates::OnEnginePreExit.AddRaw(this, &ThisClass::OnEnginePreExit);
 }
 
 void FPlaysetsEditorModule::ShutdownModule()
 {
-	IPlaysetsEditorModule::ShutdownModule();
-
+	FCoreDelegates::OnPostEngineInit.RemoveAll(this);
+	FCoreDelegates::OnEnginePreExit.RemoveAll(this);
+	
 	// Unregister style set
 	FPlaysetStyle::Shutdown();
 	FPlaysetDataListCommands::Unregister();
@@ -419,6 +442,11 @@ void FPlaysetsEditorModule::OnPostEngineInit()
 	{
 		UThumbnailManager::Get().RegisterCustomRenderer(UPlayset::StaticClass(), UPlaysetThumbnailRenderer::StaticClass());
 	}
+}
+
+void FPlaysetsEditorModule::OnEnginePreExit()
+{
+	UPlaysetDeveloperSettings::Get()->SavePlaysetConfig();
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -11,6 +11,7 @@ public class PlaysetsEditor : ModuleRules
                 "Core",
                 "UnrealEd",
                 "GameplayPlaysets",
+                "DeveloperSettings",
             }
         );
 
@@ -31,6 +32,7 @@ public class PlaysetsEditor : ModuleRules
                 "AdvancedPreviewScene",
                 "PropertyEditor",
                 "ToolMenus",
+                "EditorFramework",
             }
         );
     }

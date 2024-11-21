@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PlaysetDeveloperSettings.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/STileView.h"
 
@@ -11,14 +12,15 @@ struct FPlaysetSelectedActorEntry
 public:
 	FPlaysetSelectedActorEntry()
 		: bIsEnabled(true)
+		, bIsNative(false)
 	{
 	}
 	
 	FPlaysetSelectedActorEntry(TWeakObjectPtr<AActor> ActorPtr)
 		: AssociatedAsset(ActorPtr.Get(false))
 	{
-		if (ActorPtr->GetClass()->IsChildOf(UBlueprintGeneratedClass::StaticClass()) ||
-			Cast<UBlueprintGeneratedClass>(ActorPtr.Get()->GetClass()))
+		if ((ActorPtr->GetClass()->IsChildOf(UBlueprintGeneratedClass::StaticClass()) ||
+			Cast<UBlueprintGeneratedClass>(ActorPtr.Get()->GetClass())))
 		{
 			bIsEnabled = true;
 			bIsNative = false;
@@ -27,6 +29,14 @@ public:
 		{
 			bIsEnabled = false;
 			bIsNative = true;
+		}
+
+		if (const UPlaysetDeveloperSettings* Settings = UPlaysetDeveloperSettings::Get())
+		{
+			if (!Settings->bDeselectNativeActors)
+			{
+				bIsEnabled = true;
+			}
 		}
 	}
 

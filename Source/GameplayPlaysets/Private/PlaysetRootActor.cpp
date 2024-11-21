@@ -13,3 +13,27 @@ APlaysetRootActor::APlaysetRootActor(const FObjectInitializer& ObjectInitializer
 	SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComponent"));
 	SetRootComponent(SceneComponent);
 }
+
+void APlaysetRootActor::Destroyed()
+{
+#if WITH_EDITOR
+	if (GEngine->IsEditor())
+	{
+		bool bDestroy = true;
+		GConfig->GetBool(TEXT("/Script/PlaysetsEditor.PlaysetDeveloperSettings"), TEXT("bDeleteAttachedActors"), bDestroy, GEditorIni);
+
+		if (bDestroy)
+		{
+			TArray<AActor*> Attached;
+			GetAttachedActors(Attached);
+
+			for (AActor* Actor : Attached)
+			{
+				Actor->Destroy();
+			}
+		}
+	}
+#endif
+	
+	Super::Destroyed();
+}

@@ -42,9 +42,7 @@ After saving the Playset it should now appear in the Content Browser (Including 
 ## Playset Asset Editor  
 
 ![image](https://github.com/user-attachments/assets/f34fabb3-5000-49f5-b7a5-1be1be839587)
-
+![image](https://github.com/user-attachments/assets/dc123dfd-6949-4c45-83c0-2cb8cae0df68)
 
 
 ## Using Playsets  
-
-![image](https://github.com/user-attachments/assets/dc123dfd-6949-4c45-83c0-2cb8cae0df68)
